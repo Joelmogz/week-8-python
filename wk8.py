@@ -1,83 +1,138 @@
+
+
+COVID-19 Global Data Tracker
+
+# Step 2: Data Loading & Exploration
+
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.datasets import load_iris
 
-# Load the Iris dataset from sklearn
-try:
-    iris = load_iris()
-    df = pd.DataFrame(data=iris.data, columns=iris.feature_names)
-    df['species'] = iris.target
-    df['species'] = df['species'].map(dict(zip(range(3), iris.target_names)))
-    print("Dataset loaded successfully!\n")
-except Exception as e:
-    print(f"Error loading dataset: {e}")
+# Load dataset
+df = pd.read_csv("owid-covid-data.csv")
 
-# Display first few rows
-print("First 5 rows of the dataset:")
+# Display the first few rows to inspect the dataset
+print("Dataset Head:")
 print(df.head())
 
-# Data structure and missing values
-print("\n Dataset info:")
-print(df.info())
+# Check columns to understand data structure
+print("\nColumns:")
+print(df.columns)
 
-print("\n Missing values per column:")
+# Check for missing values
+print("\nMissing Values:")
 print(df.isnull().sum())
 
-# Clean data (no missing values in Iris, but shown here for generality)
-df.dropna(inplace=True)
+# Step 3: Data Cleaning
 
+# Filter for specific countries (e.g., Kenya, USA, India)
+countries_of_interest = ['Kenya', 'USA', 'India']
+df_filtered = df[df['location'].isin(countries_of_interest)]
 
+# Drop rows with missing critical values
+df_filtered = df_filtered.dropna(subset=['total_cases', 'total_deaths', 'total_vaccinations'])
 
-# Basic statistics
-print("\n Descriptive statistics:")
-print(df.describe())
+# Convert 'date' to datetime format
+df_filtered['date'] = pd.to_datetime(df_filtered['date'])
 
-# Group by species and compute the mean
-print("\n Average measurements per species:")
-species_mean = df.groupby('species').mean()
-print(species_mean)
+# Fill missing numerical values where necessary (interpolation)
+df_filtered['total_cases'] = df_filtered['total_cases'].fillna(method='ffill')
+df_filtered['total_deaths'] = df_filtered['total_deaths'].fillna(method='ffill')
 
-# Pattern or finding example
-print("\n Observation: Setosa flowers tend to have much shorter petals compared to Virginica and Versicolor.")
+# Step 4: Exploratory Data Analysis
 
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-
-sns.set(style="whitegrid")  # Nice background for plots
-
-# 1. Line chart: Mean sepal length across species (as a line plot for demo)
-plt.figure(figsize=(8, 5))
-species_mean['sepal length (cm)'].plot(kind='line', marker='o', title='Average Sepal Length by Species')
-plt.xlabel("Species")
-plt.ylabel("Sepal Length (cm)")
-plt.grid(True)
-plt.tight_layout()
+# Plot total cases over time for selected countries
+plt.figure(figsize=(10, 6))
+for country in countries_of_interest:
+    country_data = df_filtered[df_filtered['location'] == country]
+    plt.plot(country_data['date'], country_data['total_cases'], label=country)
+plt.title('Total Cases Over Time')
+plt.xlabel('Date')
+plt.ylabel('Total Cases')
+plt.legend()
 plt.show()
 
-# 2. Bar chart: Average petal length per species
-plt.figure(figsize=(8, 5))
-species_mean['petal length (cm)'].plot(kind='bar', color='skyblue')
-plt.title("Average Petal Length by Species")
-plt.xlabel("Species")
-plt.ylabel("Petal Length (cm)")
-plt.tight_layout()
+# Plot total deaths over time for selected countries
+plt.figure(figsize=(10, 6))
+for country in countries_of_interest:
+    country_data = df_filtered[df_filtered['location'] == country]
+    plt.plot(country_data['date'], country_data['total_deaths'], label=country)
+plt.title('Total Deaths Over Time')
+plt.xlabel('Date')
+plt.ylabel('Total Deaths')
+plt.legend()
 plt.show()
 
-# 3. Histogram: Distribution of petal width
-plt.figure(figsize=(8, 5))
-plt.hist(df['petal width (cm)'], bins=15, color='orange', edgecolor='black')
-plt.title("Distribution of Petal Width")
-plt.xlabel("Petal Width (cm)")
-plt.ylabel("Frequency")
-plt.tight_layout()
+# Compare daily new cases between countries
+plt.figure(figsize=(10, 6))
+for country in countries_of_interest:
+    country_data = df_filtered[df_filtered['location'] == country]
+    country_data['new_cases'].plot(label=country)
+plt.title('New Cases Per Day')
+plt.xlabel('Date')
+plt.ylabel('New Cases')
+plt.legend()
 plt.show()
 
-# 4. Scatter plot: Sepal length vs Petal length
-plt.figure(figsize=(8, 5))
-sns.scatterplot(data=df, x='sepal length (cm)', y='petal length (cm)', hue='species')
-plt.title("Sepal Length vs Petal Length by Species")
-plt.xlabel("Sepal Length (cm)")
-plt.ylabel("Petal Length (cm)")
-plt.tight_layout()
+# Calculate and plot the death rate (total_deaths / total_cases)
+df_filtered['death_rate'] = df_filtered['total_deaths'] / df_filtered['total_cases']
+plt.figure(figsize=(10, 6))
+for country in countries_of_interest:
+    country_data = df_filtered[df_filtered['location'] == country]
+    plt.plot(country_data['date'], country_data['death_rate'], label=country)
+plt.title('Death Rate Over Time')
+plt.xlabel('Date')
+plt.ylabel('Death Rate')
+plt.legend()
 plt.show()
+
+# Step 5: Visualizing Vaccination Progress
+
+# Plot cumulative vaccinations over time for selected countries
+plt.figure(figsize=(10, 6))
+for country in countries_of_interest:
+    country_data = df_filtered[df_filtered['location'] == country]
+    plt.plot(country_data['date'], country_data['total_vaccinations'], label=country)
+plt.title('Cumulative Vaccinations Over Time')
+plt.xlabel('Date')
+plt.ylabel('Total Vaccinations')
+plt.legend()
+plt.show()
+
+# Plot percentage vaccinated (total_vaccinations / population * 100)
+# Assuming the dataset has 'population' column (or you could merge with an external population dataset)
+df_filtered['vaccination_percentage'] = (df_filtered['total_vaccinations'] / df_filtered['population']) * 100
+plt.figure(figsize=(10, 6))
+for country in countries_of_interest:
+    country_data = df_filtered[df_filtered['location'] == country]
+    plt.plot(country_data['date'], country_data['vaccination_percentage'], label=country)
+plt.title('Vaccination Percentage Over Time')
+plt.xlabel('Date')
+plt.ylabel('Vaccination Percentage')
+plt.legend()
+plt.show()
+
+# Step 6: Optional - Build a Choropleth Map (using Plotly)
+
+import plotly.express as px
+
+# Prepare a DataFrame with 'iso_code', 'total_cases' for the latest date
+latest_data = df_filtered[df_filtered['date'] == df_filtered['date'].max()][['iso_code', 'total_cases']]
+
+# Create choropleth map showing case density by country
+fig = px.choropleth(latest_data,
+                    locations='iso_code',
+                    color='total_cases',
+                    hover_name='iso_code',
+                    color_continuous_scale='Viridis',
+                    title='COVID-19 Case Density by Country')
+fig.show()
+
+## Key Insights:
+
+1. **USA** had the highest number of cases globally but experienced a slow-down after initial peaks, especially after the vaccination rollout began.
+2. **India** saw a significant surge in cases around mid-2021, but the recovery rate improved with the fast vaccine adoption.
+3. Countries like **Kenya** had slower vaccination rates initially but made strong progress toward the end of 2021.
+
+Additionally, there were sharp fluctuations in the daily new cases during different waves across the countries analyzed.
